@@ -1,0 +1,46 @@
+---
+- hosts: all 
+  connection: local
+  tasks:
+  - name: Launch Tiktalik Instance (videoconverter)
+    tiktalik: >
+      command=instance
+      state=present
+      name=videoconverter
+      api_key= >>>>>>> put your API key here <<<<<<<<
+      api_secret= >>>>>>> put your API secret here <<<<<<<<<<
+      size_id=cpuhog
+      networks=e92e60c2-2993-4a0c-b635-c5e2b2462c7a
+      image_uuid=4a2b3e72-47f1-4e88-b482-1834478ade28
+      ssh_key_uuid=>>>>>>>>> put your SSH key here <<<<<<<<<<<<
+      unique_name=yes
+      wait=yes
+      wait_timeout=300
+    register: instance1
+  - debug: msg="Videoconverter IP is {{instance1.instance.interfaces[0].ip}}"
+
+  - wait_for: delay=30 host="{{ instance1.instance.interfaces[0].ip }}" port=22
+
+  - name: Add new instance1 to host group
+    local_action: add_host hostname={{ instance1.instance.interfaces[0].ip }} groupname=videoconverters
+
+- hosts: videoconverters
+  remote_user: root
+  gather_facts: True
+  tasks:
+    - apt: pkg=python-boto update_cache=yes
+    - apt: pkg=ffmpeg
+    - copy: src=convert.py dest=/root/convert.py mode=0775
+    - copy: src=config.py dest=/root/config.py mode=0775
+    - raw: /root/convert.py
+
+- hosts: local
+  connection: local
+  tasks:
+    - name: Teardown Tiktalik Instance
+      tiktalik: >
+       command=instance
+       state=absent
+       uuid={{ instance1.instance.uuid }}
+       api_key= >>>>>>> put your API key here <<<<<<<
+       api_secret= >>>>> put your API secret here <<<<<<<
